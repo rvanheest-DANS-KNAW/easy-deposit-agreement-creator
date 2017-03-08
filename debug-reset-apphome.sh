@@ -15,15 +15,23 @@
 # limitations under the License.
 #
 
-BINPATH=`command readlink -f $0 2> /dev/null || command grealpath $0 2> /dev/null`
-APPHOME=`dirname \`dirname $BINPATH \``
-if [ -f $HOME/logback.xml ]
-then
-    LOGCONFIG=$HOME/logback.xml
-else
-    LOGCONFIG=$APPHOME/cfg/logback.xml
+APPHOME=home
+TEMPDIR=data
+
+rm -fr $APPHOME
+cp -r src/main/assembly/dist $APPHOME
+cp src/test/resources/debug-config/* $APPHOME/cfg/
+mv $APPHOME/cfg/pdfgen.sh $APPHOME/res/pdfgen.sh
+
+if [ -e $TEMPDIR ]; then
+    mv $TEMPDIR $TEMPDIR-`date  +"%Y-%m-%d@%H:%M:%S"`
 fi
 
-java -Dlogback.configurationFile=$LOGCONFIG \
-     -Dapp.home=$APPHOME \
-     -jar $APPHOME/bin/easy-license-creator.jar $@
+mkdir -p $TEMPDIR
+touch $TEMPDIR/easy-license-creator.log
+chmod -R 777 $TEMPDIR
+
+echo "A fresh application home directory for debugging has been set up at home/"
+echo "Output and logging will go to out/"
+echo "Add the following VM options to your run configuration to use these directories during debugging:"
+echo "-Dapp.home=home/ -Dlogback.configurationFile=home/cfg/logback.xml"

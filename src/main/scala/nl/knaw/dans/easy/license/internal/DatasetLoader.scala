@@ -17,14 +17,15 @@ package nl.knaw.dans.easy.license.internal
 
 import javax.naming.directory.Attributes
 
-import nl.knaw.dans.easy.license.{DatasetID, DepositorID, FileAccessRight, FileItem}
+import nl.knaw.dans.easy.license.{ DatasetID, DepositorID, FileAccessRight, FileItem }
 import nl.knaw.dans.pf.language.emd.binding.EmdUnmarshaller
-import nl.knaw.dans.pf.language.emd.{EasyMetadata, EasyMetadataImpl, EmdAudience}
+import nl.knaw.dans.pf.language.emd.{ EasyMetadata, EasyMetadataImpl, EmdAudience }
 import rx.lang.scala.schedulers.IOScheduler
-import rx.lang.scala.{Observable, ObservableExtensions}
+import rx.lang.scala.{ Observable, ObservableExtensions }
 
 import scala.collection.JavaConverters._
 import scala.language.postfixOps
+import scala.util.control.NonFatal
 
 /**
   * Data class for an Easy User. Notice that some fields are mandatory and cannot be null!
@@ -144,16 +145,16 @@ trait DatasetLoader {
 
 case class DatasetLoaderImpl(implicit parameters: DatabaseParameters) extends DatasetLoader {
 
-  val fedora = parameters.fedora
-  val ldap = parameters.ldap
+  val fedora: Fedora = parameters.fedora
+  val ldap: Ldap = parameters.ldap
 
-  def getAudience(audienceID: AudienceID) = {
+  def getAudience(audienceID: AudienceID): Observable[String] = {
     fedora.getDC(audienceID)
       .map(resource.managed(_).acquireAndGet(_.loadXML \\ "title" text))
       .subscribeOn(IOScheduler())
   }
 
-  def getDatasetById(datasetID: DatasetID) = {
+  def getDatasetById(datasetID: DatasetID): Observable[Dataset] = {
     val emdObs = fedora.getEMD(datasetID)
       .map(resource.managed(_).acquireAndGet(new EmdUnmarshaller(classOf[EasyMetadataImpl]).unmarshal))
       .subscribeOn(IOScheduler())
@@ -172,9 +173,9 @@ case class DatasetLoaderImpl(implicit parameters: DatabaseParameters) extends Da
         .combineLatestWith(getFilesInDataset(datasetID).toSeq)(_(_))
         .single
         .onErrorResumeNext {
-          case e: IllegalArgumentException => Observable.error(MultipleDatasetsFoundException(datasetID))
-          case e: NoSuchElementException => Observable.error(NoDatasetFoundException(datasetID))
-          case e => Observable.error(e)
+          case e: IllegalArgumentException => Observable.error(MultipleDatasetsFoundException(datasetID, e))
+          case e: NoSuchElementException => Observable.error(NoDatasetFoundException(datasetID, e))
+          case NonFatal(e) => Observable.error(e)
         }
     })
   }
@@ -234,9 +235,9 @@ case class DatasetLoaderImpl(implicit parameters: DatabaseParameters) extends Da
       })
       .single
       .onErrorResumeNext {
-        case e: IllegalArgumentException => Observable.error(MultipleUsersFoundException(depositorID))
-        case e: NoSuchElementException => Observable.error(NoUserFoundException(depositorID))
-        case e => Observable.error(e)
+        case e: IllegalArgumentException => Observable.error(MultipleUsersFoundException(depositorID, e))
+        case e: NoSuchElementException => Observable.error(NoUserFoundException(depositorID, e))
+        case NonFatal(e) => Observable.error(e)
       }
   }
 }

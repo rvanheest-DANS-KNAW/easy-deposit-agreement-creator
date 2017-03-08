@@ -15,15 +15,12 @@
 # limitations under the License.
 #
 
-BINPATH=`command readlink -f $0 2> /dev/null || command grealpath $0 2> /dev/null`
-APPHOME=`dirname \`dirname $BINPATH \``
-if [ -f $HOME/logback.xml ]
-then
-    LOGCONFIG=$HOME/logback.xml
-else
-    LOGCONFIG=$APPHOME/cfg/logback.xml
-fi
 
-java -Dlogback.configurationFile=$LOGCONFIG \
-     -Dapp.home=$APPHOME \
-     -jar $APPHOME/bin/easy-license-creator.jar $@
+ARGS=$@
+APPHOME=home
+. apphome.sh
+
+mvn exec:java -Pservice \
+              -Dapp.home=$APPHOME \
+              -Dlogback.configurationFile=$APPHOME/cfg/logback-service.xml \
+              -Dexec.args="$ARGS"
